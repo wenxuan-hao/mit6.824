@@ -48,7 +48,7 @@ raft中，一共有三种状态：follwer、candidate、leader。状态的转换
 3. 候选人最后一条Log条目的任期号大于本地最后一条Log条目的任期号。或者，候选人最后一条Log条目的任期号等于本地最后一条Log条目的任期号，且候选人的Log记录长度大于等于本地Log记录的长度
 ## Implement
 状态的定义：
-```
+```golang
 type state int
 
 const (
@@ -74,7 +74,7 @@ func (s state) String() string {
 计时功能我想到两种实现方式。第一种方式法是采用time.Sleep(timeout)，时间到达后用当前时间 - 心跳接收时间，若时间差>timeout即代表超时。但是采用这种方式，在很多情况下并不精准。第二种方式是采用golang标准库提供的time.Timer。Timer结构体自带的Reset()可以重置计时器，非常符合我们的场景。  
 
 对应leader，需要进行发送心跳包的计时功能。对于follower和candidate，需要实现超时选举的计时功能。我这里将两个逻辑放到一个goroutine中。关于两个timeout的时间设置，给出的test case要求心跳频率不超过10次/s，且必须在五秒内完成选举。这里也给出我的设置作为参考。代码如下：
-```
+```golang
 const (
 	HEARTBEAT_INTERVAL = time.Millisecond * 200 // tester要求心跳频率不能大于10次/s
 	ELECT_TIMEOUT_MIN  = 2000                   // ms
@@ -105,7 +105,7 @@ func (rf *Raft) tick() {
 ```
 
 开始选举的逻辑是严格遵守着论文中的描述，我认为有两个容易忽略的小地方。第一个是若选举人当选为leader，需要立刻发起心跳，避免其他的节点开始竞争上岗。第二个是如果在请求投票的rpc响应中，如果收到了大于自己的term，需要放弃选举并转换为follwer。
-```
+```golang
 func (rf *Raft) startElect() {
 	vote := 1
 	rf.role = CANDIDATE
@@ -170,7 +170,7 @@ func (rf *Raft) startElect() {
 ```
 
 RequestVote rpc的实现。这里也需要注意，若收到的请求中包含有比自己大的term，则将自己的状态切换为followe，并更新自己的term。
-```
+```golang
 type RequestVoteArgs struct {
 	Term         int
 	CandidateId  int
@@ -229,7 +229,7 @@ func (rf *Raft) logUpdate(idx, term int) bool {
 ```
 
 心跳广播的逻辑就比较简单拉，如下：
-```
+```golang
 func (rf *Raft) heartBeat() {
 	l := len(rf.peers)
 	stop := make(chan struct{}, 1)
